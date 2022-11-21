@@ -1,0 +1,143 @@
+version: "3.8"
+services:
+
+  queue-rabbitmq:
+    image: "mcsim/rabbitmq:3.7.7-management"
+    build:
+      context: ./rabbitmq
+      dockerfile: ./Dockerfile
+    container_name: queue_rabbitmq
+    hostname: "queue_rabbitmq"
+    restart: unless-stopped
+    expose:
+      - "5672"
+      - "15672"
+      - "61613"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "61613:61613"
+    volumes:
+      - "queue-rabbitmq-data:/var/lib/rabbitmq"
+    environment:
+      RABBITMQ_DEFAULT_USER: "root"
+      RABBITMQ_DEFAULT_PASS: "dupQuGgxiEedj345hL9D25MzDHCFDweR"
+      RABBITMQ_DEFAULT_VHOST: "queue_rabbitmq"
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "512MiB"
+      RABBITMQ_HOSTNAME: "queue-rabbitmq"
+      RABBITMQ_PORT: "5672"
+    networks:
+      - queue-net
+
+    queue-php:
+      image: mcsim/queue-php-fpm-7.1-xdebug:latest
+      build:
+        context: ./php
+        dockerfile: ./Dockerfile
+      expose:
+        - 9000
+      volumes:
+        - ./app:/app
+        - "queue-php-tmp:/tmp"
+        - "queue-composer-data:/home/${USER}/.composer"
+      restart: unless-stopped
+      working_dir: /app
+      environment:
+        QUEUE_DOMAIN_SCHEMA: "${QUEUE_DOMAIN_SCHEMA}"
+        QUEUE_DOMAIN_NAME: "${QUEUE_DOMAIN_NAME}"
+        PHP_IDE_CONFIG: "${PHP_IDE_CONFIG}"
+        XDEBUG_CONFIG: "${XDEBUG_CONFIG}"
+        APP_ENV: "${APP_ENV}"
+      networks:
+        - queue-net
+
+  # Make backup
+  # docker-compose exec queue-mariadb sh -c 'exec mariadb-dump --all-databases -uroot -p"$MARIADB_ROOT_PASSWORD"' > /backup/all-databases.sql
+  # another backup function
+  # docker-compose exec queue-mariadb mariabackup --backup --target-dir=/backup
+  queue-mariadb:
+    image: mariadb:10.10.2-jammy
+    container_name: queue-mariadb
+    expose:
+      - 3306
+    ports:
+      - "3306:3306"
+    volumes:
+      - "./mariadb/backup:/backup"
+      - "./mariadb/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d"
+      - "queue-db-data:/var/lib/mysql"
+    environment:
+      MARIADB_PASSWORD: "dbpassword"
+      MARIADB_USER: "dbuser"
+      MARIADB_DATABASE: task
+      MARIADB_ROOT_PASSWORD: "rootdbpassword"
+    restart: unless-stopped
+    networks:
+      - queue-net
+
+  queue-adminer:
+    image: adminer:latest
+    container_name: adminer
+    hostname: "${ADMINER_DOMAIN_NAME}"
+    restart: unless-stopped
+    expose:
+      - 80
+    ports:
+      - "8888:80"
+    environment:
+      ADMINER_DEFAULT_SERVER: 'db'
+    command: ["php", "-S", "[::]:80", "-t", "/var/www/html"]
+    networks:
+      - queue-net
+
+  queue-publisher:
+    image: mcsim/queue-publisher:1.18.3
+    build:
+      context: ./golang/publisher
+      dockerfile: ./Dockerfile
+    command: /publisher
+    environment:
+      RABBITMQ_USER: "root"
+      RABBITMQ_PASSWORD: "dupQuGgxiEedj345hL9D25MzDHCFDweR"
+      RABBITMQ_URL: "queue-rabbitmq:5672"
+      RABBITMQ_VIRTUAL_HOST: "queue_rabbitmq"
+    restart: unless-stopped
+    networks:
+      - queue-net
+
+  queue-worker:
+    image: mcsim/queue-worker:1.18.3
+    build:
+      context: ./golang/worker
+      dockerfile: ./Dockerfile
+    command: /worker
+    environment:
+      DBUSER: "dbuser"
+      DBPASS: "dbpassword"
+      DBURL: "tcp(queue-mariadb:3306)"
+      DBNAME: "task"
+      RABBITMQ_USER: "root"
+      RABBITMQ_PASSWORD: "dupQuGgxiEedj345hL9D25MzDHCFDweR"
+      RABBITMQ_URL: "queue-rabbitmq:5672"
+      RABBITMQ_VIRTUAL_HOST: "queue_rabbitmq"
+    restart: unless-stopped
+    networks:
+      - queue-net
+
+networks:
+  queue-net:
+    external: true
+
+volumes:
+  queue-php:
+    external: true
+  queue-composer-data:
+    external: true
+  queue-db-data:
+    external: true
+  queue-rabbitmq-data:
+    external: true
+  queue-php-tmp:
+    external: true
+  queue-worker-cache:
+    external: true

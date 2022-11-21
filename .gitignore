@@ -1,0 +1,8 @@
+.idea
+*.log
+
+backup.*
+nginx
+pkg
+sitemap2.xml
+sitemap-shiny.xml
