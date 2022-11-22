@@ -41,12 +41,11 @@ while true
 do
   TOTAL_MESSAGES="$(countMessages)"
   TOTAL_WORKERS="$(countWorkers)"
-#  echo "${TOTAL_WORKERS}"
-#  echo "${WORKERS_MIN_LIMIT}"
-#  echo "${TOTAL_MESSAGES}"
-#  exit 0
+  if [[ "${TOTAL_WORKERS}" -eq "${WORKERS_MAX_LIMIT}" ]] && (( TOTAL_MESSAGES > 0 )); then
+      sleep 10
+      continue
+  fi;
   if [[ "${TOTAL_WORKERS}" -eq "${WORKERS_MIN_LIMIT}" ]] && (( TOTAL_MESSAGES == 0 )); then
-      echo `date` " | [INFO] queue-worker: nothing to update."
       sleep 10
       continue
   else
