@@ -39,11 +39,10 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err != nil {
-		panic(err)
-	}
+	failOnError(err, "Failed to connect to RabbitMQ")
+
 	err = sitemap.ParseFromFile("sitemap.xml", func(e sitemap.Entry) error {
 		body := e.GetLocation()
 		err = ch.PublishWithContext(ctx,
@@ -57,7 +56,8 @@ func main() {
 				Body:         []byte(body),
 			})
 		failOnError(err, "Failed to publish a message")
-		log.Printf(" [x] Sent %s", body)
+		log.Printf(" queue-publisher: Url: %s", body)
+
 		return nil
 	})
 

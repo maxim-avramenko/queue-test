@@ -29,27 +29,27 @@ services:
     networks:
       - queue-net
 
-    queue-php:
-      image: mcsim/queue-php-fpm-7.1-xdebug:latest
-      build:
-        context: ./php
-        dockerfile: ./Dockerfile
-      expose:
-        - 9000
-      volumes:
-        - ./app:/app
-        - "queue-php-tmp:/tmp"
-        - "queue-composer-data:/home/${USER}/.composer"
-      restart: unless-stopped
-      working_dir: /app
-      environment:
-        QUEUE_DOMAIN_SCHEMA: "${QUEUE_DOMAIN_SCHEMA}"
-        QUEUE_DOMAIN_NAME: "${QUEUE_DOMAIN_NAME}"
-        PHP_IDE_CONFIG: "${PHP_IDE_CONFIG}"
-        XDEBUG_CONFIG: "${XDEBUG_CONFIG}"
-        APP_ENV: "${APP_ENV}"
-      networks:
-        - queue-net
+  queue-php:
+    image: mcsim/queue-php-fpm-7.1-xdebug:latest
+    build:
+      context: ./php
+      dockerfile: ./Dockerfile
+    expose:
+      - 9000
+    volumes:
+      - ./app:/app
+      - "queue-php-tmp:/tmp"
+      - "queue-composer-data:/home/${USER}/.composer"
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      QUEUE_DOMAIN_SCHEMA: "${QUEUE_DOMAIN_SCHEMA}"
+      QUEUE_DOMAIN_NAME: "${QUEUE_DOMAIN_NAME}"
+      PHP_IDE_CONFIG: "${PHP_IDE_CONFIG}"
+      XDEBUG_CONFIG: "${XDEBUG_CONFIG}"
+      APP_ENV: "${APP_ENV}"
+    networks:
+      - queue-net
 
   # Make backup
   # docker-compose exec queue-mariadb sh -c 'exec mariadb-dump --all-databases -uroot -p"$MARIADB_ROOT_PASSWORD"' > /backup/all-databases.sql
@@ -101,7 +101,7 @@ services:
       RABBITMQ_PASSWORD: "dupQuGgxiEedj345hL9D25MzDHCFDweR"
       RABBITMQ_URL: "queue-rabbitmq:5672"
       RABBITMQ_VIRTUAL_HOST: "queue_rabbitmq"
-    restart: unless-stopped
+    restart: "no"
     networks:
       - queue-net
 
