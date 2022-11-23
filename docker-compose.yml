@@ -109,7 +109,7 @@ services:
       RABBITMQ_PASSWORD: "dupQuGgxiEedj345hL9D25MzDHCFDweR"
       RABBITMQ_URL: "queue-rabbitmq:5672"
       RABBITMQ_VIRTUAL_HOST: "queue_rabbitmq"
-    restart: unless-stopped
+    restart: "no"
     networks:
       - queue-net
 

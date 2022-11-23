@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
-	"fmt"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"math/rand"
+	"os"
+	"strings"
 	"time"
 )
+
+const amqpProtocol = "amqp"
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -16,28 +19,51 @@ func failOnError(err error, msg string) {
 	}
 }
 
+func getRabbitMqDSN() string {
+	builder := strings.Builder{}
+	builder.WriteString(amqpProtocol)
+	builder.WriteString("://")
+	builder.WriteString(os.Getenv("RABBITMQ_USER"))
+	builder.WriteString(":")
+	builder.WriteString(os.Getenv("RABBITMQ_PASSWORD"))
+	builder.WriteString("@")
+	builder.WriteString(os.Getenv("RABBITMQ_URL"))
+	builder.WriteString("/")
+	builder.WriteString(os.Getenv("RABBITMQ_VIRTUAL_HOST"))
+	return builder.String()
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	fmt.Println("Hello, Go!")
-
-	//conn, err := amqp.Dial("amqp://root:dupQuGgxiEedj345hL9D25MzDHCFDweR@queue_rabbitmq:5672/queue_rabbitmq")
-	conn, err := amqp.Dial("amqp://root:dupQuGgxiEedj345hL9D25MzDHCFDweR@queue-rabbitmq:5672/queue_rabbitmq")
-	failOnError(err, "Failed to connect to RabbitMQ")
+	conn, err := amqp.Dial(getRabbitMqDSN())
 	defer conn.Close()
+	failOnError(err, "Failed to connect to RabbitMQ")
 
 	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
-
-	q, err := ch.QueueDeclare(
-		"urls", // name
-		true,   // durable
-		false,  // delete when unused
-		false,  // exclusive
-		false,  // no-wait
-		nil,    // arguments
+	failOnError(err, "Failed to open a channel")
+	err = ch.ExchangeDeclare(
+		"urls.exchange", // name
+		"fanout",        // type
+		true,            // durable
+		false,           // auto-deleted
+		false,           // internal
+		false,           // no-wait
+		nil,             // arguments
 	)
-	failOnError(err, "Failed to declare a queue")
+	failOnError(err, "Failed to open urls.exchange")
+
+	_, err = ch.QueueDeclare(
+		"queue.urls", // name
+		true,         // durable
+		false,        // delete when unused
+		false,        // exclusive
+		false,        // no-wait
+		amqp.Table{
+			"x-dead-letter-exchange": "death.exchange",
+		}, // arguments
+	)
+	failOnError(err, "Failed to declare a urls queue")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -46,9 +72,10 @@ func main() {
 	err = sitemap.ParseFromFile("sitemap.xml", func(e sitemap.Entry) error {
 		body := e.GetLocation()
 		err = ch.PublishWithContext(ctx,
-			"",     // exchange
-			q.Name, // routing key
-			false,  // mandatory
+			"urls.exchange", // exchange
+			"",              // routing key
+			//q.Name, // routing key
+			false, // mandatory
 			false,
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
@@ -57,9 +84,7 @@ func main() {
 			})
 		failOnError(err, "Failed to publish a message")
 		log.Printf(" queue-publisher: Url: %s", body)
-
 		return nil
 	})
-
 	failOnError(err, "Failed to declare a queue")
 }

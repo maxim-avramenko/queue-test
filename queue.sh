@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-#set -eux
-set -e
+set -eux
+#set -e
 
 WORKERS_MAX_LIMIT="${1:-20}"
 WORKERS_MIN_LIMIT="${2:-1}"
@@ -20,7 +20,7 @@ countMessages()
   local RESPONSE
   local TOTAL_URLS
   RESPONSE="$("${DC}" exec queue-rabbitmq bash -c 'rabbitmqctl list_queues -p queue_rabbitmq')"
-  TOTAL_URLS="$(echo "${RESPONSE}" | grep urls | awk '{print $2}')"
+  TOTAL_URLS="$(echo "${RESPONSE}" | grep "queue.urls" | awk '{print $2}')"
   echo "${TOTAL_URLS}"
 }
 
